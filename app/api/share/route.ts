@@ -2,12 +2,11 @@ import { Redis } from "@upstash/redis";
 import { NextResponse } from "next/server";
 import type { ShareFormat } from "@/libs/share";
 
-const redis = Redis.fromEnv();
-
 const EXPIRY_S = 30 * 24 * 60 * 60; // 30 days
 
 export async function POST(req: Request) {
   try {
+    const redis = Redis.fromEnv();
     const body = await req.json();
 
     const content =

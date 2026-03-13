@@ -3,8 +3,6 @@ import { isLinkExpired } from "@/libs/share";
 import { SharePreview } from "@/features/markdown-editor/SharePreview";
 import type { ShareFormat } from "@/libs/share";
 
-const redis = Redis.fromEnv();
-
 interface ShareData {
   content: string;
   format: ShareFormat;
@@ -18,7 +16,14 @@ export default async function ShareByIdPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const data = await redis.get<ShareData>(`share:${id}`);
+
+  let data: ShareData | null = null;
+  try {
+    const redis = Redis.fromEnv();
+    data = await redis.get<ShareData>(`share:${id}`);
+  } catch {
+    // Redis not configured or unavailable
+  }
 
   if (!data) {
     return (
