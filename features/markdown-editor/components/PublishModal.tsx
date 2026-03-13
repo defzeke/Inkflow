@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { PREVIEW_RENDERERS, type PreviewRenderer } from "../constants";
+import { buildShareUrl } from "@/libs/share";
+import type { ShareFormat } from "@/libs/share";
 
 interface PublishModalProps {
   markdown: string;
@@ -11,52 +13,20 @@ interface PublishModalProps {
 export function PublishModal({ markdown, onClose }: PublishModalProps) {
   const [format, setFormat] = useState<PreviewRenderer>("markdown");
   const [publisher, setPublisher] = useState("");
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [hasError, setHasError] = useState(false);
   const [copied, setCopied] = useState(false);
-  const isFirstRender = useRef(true);
 
-  useEffect(() => {
-    const delay = isFirstRender.current ? 0 : 400;
-    isFirstRender.current = false;
-
-    let cancelled = false;
-    setHasError(false);
-
-    const timer = setTimeout(async () => {
-      setIsGenerating(true);
-      setShareUrl(null);
-      try {
-        const res = await fetch("/api/share", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            content: markdown,
-            format,
-            publisher: publisher.trim() || undefined,
-          }),
-        });
-        if (!res.ok) throw new Error();
-        const { id } = await res.json();
-        if (!cancelled) {
-          setShareUrl(`${window.location.origin}/share/${id}`);
-        }
-      } catch {
-        if (!cancelled) setHasError(true);
-      } finally {
-        if (!cancelled) setIsGenerating(false);
-      }
-    }, delay);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [markdown, format, publisher]);
+  const shareUrl = useMemo(
+    () =>
+      buildShareUrl(
+        window.location.origin,
+        markdown,
+        format as ShareFormat,
+        publisher || undefined
+      ),
+    [markdown, format, publisher]
+  );
 
   async function handleCopy() {
-    if (!shareUrl) return;
     await navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -134,24 +104,13 @@ export function PublishModal({ markdown, onClose }: PublishModalProps) {
           <div className="flex flex-col sm:flex-row gap-2">
             <input
               readOnly
-              value={
-                isGenerating
-                  ? "Generating link…"
-                  : hasError
-                  ? "Failed to generate link"
-                  : (shareUrl ?? "")
-              }
-              className={`flex-1 min-w-0 text-xs px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 outline-none truncate transition-colors ${
-                isGenerating || hasError
-                  ? "text-gray-400 dark:text-gray-500 italic"
-                  : "text-gray-700 dark:text-gray-300"
-              }`}
+              value={shareUrl}
+              className="flex-1 min-w-0 text-xs px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 outline-none truncate transition-colors"
             />
             <button
               type="button"
               onClick={handleCopy}
-              disabled={!shareUrl || isGenerating}
-              className="sm:shrink-0 px-3 py-2 text-xs font-medium rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="sm:shrink-0 px-3 py-2 text-xs font-medium rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200"
             >
               {copied ? "Copied!" : "Copy Link"}
             </button>
